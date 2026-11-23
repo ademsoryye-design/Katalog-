@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Katalog & Daftar Harga Internal Karyawan</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body { font-family: 'Inter', sans-serif; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased selection:bg-emerald-100 selection:text-emerald-900">
+
+<!-- =========================================================
+KONFIGURASI UTAMA (UBAH BAGIAN INI SESUAI KEBUTUHAN TOKO)
+========================================================= -->
+<script>
+const CONFIG = {
+NAMA_TOKO: "Katalog Internal Karyawan",
+SUBJUDUL: "Cek Stok, Harga & Gambar Produk",
+PIN_KARYAWAN: "123", // Ganti PIN akses karyawan di sini
+// Tempel link CSV dari Google Sheets (File -> Share -> Publish to web -> CSV) di bawah ini
+// Jika dikosongkan "", web akan memakai data bawaan / input manual dari browser
+GOOGLE_SHEET_CSV_URL: "",
+MATA_UANG: "Rp"
+};
+</script>
+
+<!-- LAYAR KUNCI PIN KARYAWAN -->
+<div id="pinScreen" class="fixed inset-0 z-50 bg-slate-900/95 backdrop-blur-sm flex items-center justify-center p-4">
+<div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 text-center border border-slate-100">
+<div class="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+<svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+</svg>
+</div>
+<h1 id="lockTitle" class="text-xl font-bold text-slate-900">Akses Khusus Karyawan</h1>
+<p class="text-sm text-slate-500 mt-1">Masukkan PIN untuk melihat daftar harga & stok</p>
+
+<div class="my-5 flex justify-center gap-3">
+<div id="dot1" class="w-3.5 h-3.5 rounded-full border-2 border-slate-300 transition-all"></div>
+<div id="dot2" class="w-3.5 h-3.5 rounded-full border-2 border-slate-300 transition-all"></div>
+<div id="dot3" class="w-3.5 h-3.5 rounded-full border-2 border-slate-300 transition-all"></div>
+<div id="dot4" class="w-3.5 h-3.5 rounded-full border-2 border-slate-300 transition-all"></div>
+</div>
+<p id="pinError" class="text-xs text-rose-600 font-medium h-4 mb-2"></p>
+
+<div class="grid grid-cols-3 gap-2.5 max-w-[240px] mx-auto">
+<button onclick="pressPin('1')" class="h-12 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95 font-semibold text-lg transition">1</button>
+<button onclick="pressPin('2')" class="h-12 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95 font-semibold text-lg transition">2</button>
+<button onclick="pressPin('3')" class="h-12 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95 font-semibold text-lg transition">3</button>
+<button onclick="pressPin('4')" class="h-12 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95 font-semibold text-lg transition">4</button>
+<button onclick="pressPin('5')" class="h-12 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95 font-semibold text-lg transition">5</button>
+<button onclick="pressPin('6')" class="h-12 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95 font-semibold text-lg transition">6</button>
+<button onclick="pressPin('7')" class="h-12 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95 font-semibold text-lg transition">7</button>
+<button onclick="pressPin('8')" class="h-12 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95 font-semibold text-lg transition">8</button>
+<button onclick="pressPin('9')" class="h-12 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95 font-semibold text-lg transition">9</button>
+<button onclick="clearPin()" class="h-12 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 active:scale-95 font-medium text-sm transition">Hapus</button>
+<button onclick="pressPin('0')" class="h-12 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95 font-semibold text-lg transition">0</button>
+<button onclick="backspacePin()" class="h-12 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95 font-medium text-sm transition">⌫</button>
+</div>
+<p class="text-[11px] text-slate-400 mt-4">PIN default: <span class="font-mono font-semibold text-slate-600">1234</span> (dapat diubah di file index.html)</p>
+</div>
+</div>
+
+<!-- HEADER UTAMA -->
+<header class="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200">
+<div class="max-w-6xl mx-auto px-4 py-3.5">
+<div class="flex items-center justify-between gap-3">
+<div>
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+<h1 id="headerTitle" class="font-bold text-slate-900 text-lg leading-tight">Katalog Internal Karyawan</h1>
+</div>
+<p id="headerSubtitle" class="text-xs text-slate-500 mt-0.5">Cek Stok, Harga & Gambar Produk</p>
+</div>
+
+<div class="flex items-center gap-2">
+<button onclick="syncFromGoogleSheet(true)" id="syncBtn" title="Sinkronkan ulang dari Google Sheets"
+class="hidden items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-semibold transition">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+</svg>
+<span class="hidden sm:inline">Sync Sheets</span>
+</button>
+
+<button onclick="openManageModal()"
+class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900 text-white hover:bg-slate-800 text-xs font-semibold transition shadow-sm">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+</svg>
+<span>Kelola / Import</span>
+</button>
+
+<button onclick="lockApp()" title="Kunci Layar"
+class="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 transition">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+</svg>
+</button>
+</div>
+</div>
+
+<!-- PENCARIAN & SORTIR -->
+<div class="mt-3 flex flex-col sm:flex-row gap-2">
+<div class="relative flex-1">
+<svg class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+</svg>
+<input type="text" id="searchInput" oninput="renderCatalog()" placeholder="Cari nama barang atau kategori..."
+class="w-full pl-10 pr-9 py-2.5 bg-slate-100 border border-transparent focus:bg-white focus:border-emerald-500 rounded-xl text-sm outline-none transition" />
+<button onclick="clearSearch()" id="clearSearchBtn" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold">✕</button>
+</div>
+
+<select id="priceLevelSelect" onchange="renderCatalog()"
+class="px-3 py-2.5 bg-emerald-50 border border-emerald-200 focus:bg-white focus:border-emerald-500 rounded-xl text-sm font-semibold text-emerald-800 outline-none">
+<option value="hjual1">Harga 1 (hjual1)</option>
+<option value="hjual2">Harga 2 (hjual2)</option>
+<option value="hjual3">Harga 3 (hjual3)</option>
+</select>
+
+<select id="stockFilterSelect" onchange="renderCatalog()"
+class="px-3 py-2.5 bg-slate-100 border border-transparent focus:bg-white focus:border-emerald-500 rounded-xl text-sm text-slate-700 outline-none">
+<option value="all">Semua Stok</option>
+<option value="available">Tersedia (> 0)</option>
+<option value="low">Stok Menipis (≤ 5)</option>
+<option value="empty">Habis (0)</option>
+</select>
+
+<select id="sortSelect" onchange="renderCatalog()"
+class="px-3 py-2.5 bg-slate-100 border border-transparent focus:bg-white focus:border-emerald-500 rounded-xl text-sm text-slate-700 outline-none">
+<option value="default">Urutan Asli</option>
+<option value="name-asc">Nama: A - Z</option>
+<option value="price-asc">Harga: Termurah</option>
+<option value="price-desc">Harga: Termahal</option>
+<option value="stock-asc">Stok: Terendah</option>
+<option value="stock-desc">Stok: Terbanyak</option>
+</select>
+</div>
+
+<!-- FILTER KATEGORI -->
+<div id="categoryChips" class="mt-2.5 flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5"></div>
+</div>
+</header>
+
+<!-- STATUS BAR -->
+<div class="max-w-6xl mx-auto px-4 pt-4 pb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+<div>Menampilkan <span id="itemCount" class="font-bold text-slate-800">0</span> barang</div>
+<div id="sourceStatus" class="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-full border border-slate-200">
+<span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+<span>Sumber: Data Lokal Browser</span>
+</div>
+</div>
+
+<!-- GRID KATALOG BARANG -->
+<main class="max-w-6xl mx-auto px-4 pb-16">
+<div id="catalogGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4"></div>
+
+<div id="emptyState" class="hidden text-center py-16 bg-white rounded-2xl border border-slate-200 mt-4">
+<div class="text-3xl mb-2">🔍</div>
+<h3 class="font-semibold text-slate-800">Barang tidak ditemukan</h3>
+<p class="text-xs text-slate-500 mt-1">Coba kata kunci lain atau ubah filter kategori.</p>
+</div>
+</main>
+
+<!-- MODAL KELOLA & IMPORT DATA -->
+<div id="manageModal" class="hidden fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+<div class="bg-white rounded-2xl shadow-xl max-w-xl w-full overflow-hidden border border-slate-200">
+<div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+<h2 class="font-bold text-slate-900">Kelola Sumber Data Katalog</h2>
+<button onclick="closeManageModal()" class="text-slate-400 hover:text-slate-700 font-bold text-lg">✕</button>
+</div>
+
+<!-- TAB -->
+<div class="flex border-b border-slate-100 text-xs font-semibold">
+<button onclick="switchTab('sheets')" id="tabSheets" class="flex-1 py-3 border-b-2 border-emerald-600 text-emerald-700 bg-emerald-50/40">1. Link Google Sheets (Online)</button>
+<button onclick="switchTab('excel')" id="tabExcel" class="flex-1 py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800">2. Copy-Paste dari Excel</button>
+</div>
+
+<!-- KONTEN TAB GOOGLE SHEETS -->
+<div id="panelSheets" class="p-5 space-y-4">
+<div class="bg-emerald-50 border border-emerald-100 rounded-xl p-3.5 text-xs text-emerald-900 space-y-1">
+<p class="font-semibold">Cara Menghubungkan Google Sheets (Update Otomatis):</p>
+<ol class="list-decimal ml-4 space-y-0.5 text-emerald-800">
+<li>Di Google Sheets, klik <b>File > Share > Publish to web</b>.</li>
+<li>Pilih format <b>Comma-separated values (.csv)</b> lalu klik <b>Publish</b>.</li>
+<li>Tempel link CSV tersebut di kotak bawah ini dan klik Simpan.</li>
+</ol>
+</div>
+
+<div>
+<label class="block text-xs font-semibold text-slate-700 mb-1">URL CSV Google Sheets</label>
+<input type="url" id="sheetUrlInput" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv"
+class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs focus:border-emerald-500 outline-none" />
+</div>
+
+<div class="flex flex-wrap gap-2 justify-end pt-2">
+<button onclick="disconnectSheet()" class="px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50">Putuskan Link</button>
+<button onclick="saveAndSyncSheet()" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm">Simpan & Tarik Data</button>
+</div>
+</div>
+
+<!-- KONTEN TAB COPY-PASTE EXCEL -->
+<div id="panelExcel" class="hidden p-5 space-y-3">
+<p class="text-xs text-slate-600">
+Blok kolom di Excel/Google Sheets Anda dengan urutan: <b>Nama Barang | Harga | Kategori | Link Gambar | Stok</b> lalu <i>Paste</i> di bawah ini:
+</p>
+<textarea id="excelPasteArea" rows="6" placeholder="Paracetamol 500mg 5000 Obat Bebas https://contoh.com/foto.jpg 25 Vitamin C 1000mg 18500 Suplemen 8"
+class="w-full p-3 border border-slate-300 rounded-xl text-xs font-mono focus:border-emerald-500 outline-none"></textarea>
+
+<div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+<button onclick="resetSampleData()" class="text-xs text-slate-500 hover:text-slate-800 underline">Reset Data Contoh</button>
+<div class="flex gap-2">
+<button onclick="importFromExcelPaste(false)" class="px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-semibold hover:bg-slate-50">+ Tambahkan</button>
+<button onclick="importFromExcelPaste(true)" class="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800">Ganti Semua Data</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- TOAST NOTIFIKASI -->
+<div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white text-xs font-medium px-4 py-2.5 rounded-full shadow-lg opacity-0 pointer-events-none transition-opacity duration-200"></div>
+
+<script>
+const SAMPLE_DATA = [
+{ name: "3 WAY STOP COCK BLUE", price: 3000, price2: 2700, price3: 0, unit: "pcs", category: "Alkes", image: "", stock: 50 },
+{ name: "ADAPTOR AC/DC TENSI DIGITAL OMRON", price: 32000, price2: 0, price3: 0, unit: "pcs", category: "Alkes", image: "", stock: 0 },
+{ name: "AESCULAP 11 # BRAUN", price: 9000, price2: 4500, price3: 0, unit: "bks", category: "Alkes", image: "", stock: 74 },
+{ name: "ALKOHOL 70% 1000ML AFI FARMA", price: 27000, price2: 24000, price3: 0, unit: "BOTOL", category: "Antiseptik", image: "", stock: 26 },
+{ name: "MASKER MEDIS 3 PLY (50 PCS)", price: 32000, price2: 29000, price3: 27500, unit: "box", category: "Alat Kesehatan", image: "", stock: 4 },
+{ name: "ALKOHOL 70% 100ML ONE MED", price: 4500, price2: 4200, price3: 0, unit: "btl", category: "Antiseptik", image: "", stock: 0 }
+ ];
+
+let items = [];
+let selectedCategory = "Semua";
+let enteredPin = "";
+
+// Inisialisasi Aplikasi
+document.addEventListener("DOMContentLoaded", () => {
+document.getElementById("headerTitle").textContent = CONFIG.NAMA_TOKO;
+document.getElementById("headerSubtitle").textContent = CONFIG.SUBJUDUL;
+
+if (sessionStorage.getItem("katalog_unlocked") === "1") {
+document.getElementById("pinScreen").classList.add("hidden");
+}
+
+const savedUrl = localStorage.getItem("katalog_sheet_url") || CONFIG.GOOGLE_SHEET_CSV_URL;
+if (savedUrl) {
+document.getElementById("sheetUrlInput").value = savedUrl;
+syncFromGoogleSheet(false);
+} else {
+loadLocalItems();
+}
+});
+
+// ==========================================
+// LOGIKA PIN KARYAWAN
+// ==========================================
+function pressPin(digit) {
+if (enteredPin.length >= 4) return;
+enteredPin += digit;
+updatePinDots();
+if (enteredPin.length === 4) {
+if (enteredPin === CONFIG.PIN_KARYAWAN) {
+sessionStorage.setItem("katalog_unlocked", "1");
+document.getElementById("pinScreen").classList.add("hidden");
+enteredPin = "";
+updatePinDots();
+} else {
+document.getElementById("pinError").textContent = "PIN salah, silakan coba lagi.";
+setTimeout(() => {
+enteredPin = "";
+updatePinDots();
+document.getElementById("pinError").textContent = "";
+}, 600);
+}
+}
+}
+function backspacePin() {
+enteredPin = enteredPin.slice(0, -1);
+updatePinDots();
+}
+function clearPin() {
+enteredPin = "";
+updatePinDots();
+}
+function updatePinDots() {
+for (let i = 1; i <= 4; i++) {
+const dot = document.getElementById("dot" + i);
+if (i <= enteredPin.length) {
+dot.classList.add("bg-emerald-500", "border-emerald-500", "scale-110");
+} else {
+dot.classList.remove("bg-emerald-500", "border-emerald-500", "scale-110");
+}
+}
+}
+function lockApp() {
+sessionStorage.removeItem("katalog_unlocked");
+enteredPin = "";
+updatePinDots();
+document.getElementById("pinScreen").classList.remove("hidden");
+}
+
+// ==========================================
+// DATA & GOOGLE SHEETS SYNC
+// ==========================================
+function loadLocalItems() {
+const stored = localStorage.getItem("katalog_items_v1");
+items = stored ? JSON.parse(stored) : [...SAMPLE_DATA];
+updateSourceBadge(false);
+buildCategories();
+renderCatalog();
+}
+
+function saveLocalItems() {
+localStorage.setItem("katalog_items_v1", JSON.stringify(items));
+}
+
+async function syncFromGoogleSheet(showNotify = true) {
+const url = localStorage.getItem("katalog_sheet_url") || CONFIG.GOOGLE_SHEET_CSV_URL;
+if (!url) return;
+
+try {
+const res = await fetch(url + (url.includes("?") ? "&" : "?") + "t=" + Date.now());
+if (!res.ok) throw new Error("Gagal mengunduh CSV");
+const csvText = await res.text();
+const parsed = parseCSV(csvText);
+
+if (parsed.length > 0) {
+items = parsed;
+saveLocalItems();
+updateSourceBadge(true);
+buildCategories();
+renderCatalog();
+if (showNotify) showToast("Berhasil sinkron " + items.length + " barang dari Google Sheets!");
+}
+} catch (err) {
+console.error(err);
+loadLocalItems();
+if (showNotify) showToast("Gagal mengambil data Google Sheets. Pastikan sudah Publish to Web (CSV).");
+}
+}
+
+function parseCSV(text) {
+const rows = [];
+let currentRow = [];
+let currentCell = "";
+let insideQuotes = false;
+
+for (let i = 0; i < text.length; i++) {
+const char = text[i];
+const nextChar = text[i + 1];
+
+if (char === '"' && insideQuotes && nextChar === '"') {
+currentCell += '"';
+i++;
+} else if (char === '"') {
+insideQuotes = !insideQuotes;
+} else if (char === ',' && !insideQuotes) {
+currentRow.push(currentCell.trim());
+currentCell = "";
+} else if ((char === '\n' || (char === '\r' && nextChar === '\n')) && !insideQuotes) {
+if (char === '\r') i++;
+currentRow.push(currentCell.trim());
+rows.push(currentRow);
+currentRow = [];
+currentCell = "";
+} else {
+currentCell += char;
+}
+}
+if (currentCell || currentRow.length > 0) {
+currentRow.push(currentCell.trim());
+rows.push(currentRow);
+}
+
+const h0 = (rows[0] || []).map(c => String(c || "").toLowerCase().trim());
+const hasHeader = rows[0] && /nama|namabrg|barang|produk/i.test(rows[0][0]);
+const startIndex = hasHeader ? 1 : 0;
+const isUserSheetFormat = h0.includes("hjual1") || h0.includes("satuan") || h0.includes("namabrg");
+const result = [];
+
+for (let i = startIndex; i < rows.length; i++) {
+const r = rows[i];
+if (!r[0]) continue;
+
+if (isUserSheetFormat) {
+// Format sesuai screenshot: A=namabrg, B=stock, C=satuan, D=hjual1, E=hjual2, F=hjual3, ... opsional kolom gambar (J / index 9 atau kolom berawalan http)
+const rawStock = String(r[1] ?? "").trim();
+const cleanStock = rawStock === "" ? 0 : (Number(rawStock.replace(/[^0-9-]/g, "")) || 0);
+const unit = String(r[2] || "").trim();
+const p1 = Number(String(r[3] || "0").replace(/[^0-9]/g, "")) || 0;
+const p2 = Number(String(r[4] || "0").replace(/[^0-9]/g, "")) || 0;
+const p3 = Number(String(r[5] || "0").replace(/[^0-9]/g, "")) || 0;
+let imgUrl = "";
+for (let k = 6; k < r.length; k++) {
+if (/^https?:///i.test(String(r[k] || "").trim())) {
+imgUrl = String(r[k]).trim();
+break;
+}
+}
+result.push({
+name: r[0],
+price: p1,
+price2: p2,
+price3: p3,
+unit: unit,
+category: unit || "Umum",
+image: imgUrl,
+stock: cleanStock
+});
+} else {
+// Format standar: A=Nama Barang, B=Harga, C=Kategori, D=Link Gambar, E=Stok
+const cleanPrice = Number(String(r[1] || "0").replace(/[^0-9]/g, "")) || 0;
+const rawStock = String(r[4] ?? "").trim();
+const cleanStock = rawStock === "" ? 0 : (Number(rawStock.replace(/[^0-9-]/g, "")) || 0);
+result.push({
+name: r[0],
+price: cleanPrice,
+price2: 0,
+price3: 0,
+unit: "",
+category: r[2] || "Umum",
+image: r[3] || "",
+stock: cleanStock
+});
+}
+}
+return result;
+}
+
+function updateSourceBadge(isOnline) {
+const badge = document.getElementById("sourceStatus");
+const syncBtn = document.getElementById("syncBtn");
+if (isOnline) {
+badge.innerHTML = <span class="w-2 h-2 rounded-full bg-emerald-500"&gt;&lt;/span&gt;&lt;span class="text-emerald-700 font-medium"&gt;Terhubung: Google Sheets Online&lt;/span>;
+syncBtn.classList.remove("hidden");
+syncBtn.classList.add("flex");
+} else {
+badge.innerHTML = <span class="w-1.5 h-1.5 rounded-full bg-slate-400"&gt;&lt;/span&gt;&lt;span&gt;Sumber: Data Lokal Browser&lt;/span>;
+syncBtn.classList.add("hidden");
+syncBtn.classList.remove("flex");
+}
+}
+
+// ==========================================
+// RENDER KATALOG & GAMBAR OTOMATIS FALLBACK
+// ==========================================
+function generateFallbackSvg(name, category) {
+const initials = name.split(" ").slice(0, 2).map(w => w[0] || "").join("").toUpperCase() || "BRG";
+const colors = [
+["#ecfdf5", "#059669"],
+["#eff6ff", "#2563eb"],
+["#fef3c7", "#d97706"],
+["#f3e8ff", "#7c3aed"],
+["#ffe4e6", "#e11d48"]
+];
+let hash = 0;
+for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+const [bg, fg] = colors[Math.abs(hash) % colors.length];
+
+const svg = <svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300"&gt; &lt;rect width="300" height="300" fill="${bg}"/>
+<text x="150" y="155" font-family="Inter, sans-serif" font-size="64" font-weight="700" fill="${fg}" text-anchor="middle" dominant-baseline="middle"&gt;${initials}</text>
+<text x="150" y="245" font-family="Inter, sans-serif" font-size="16" font-weight="600" fill="${fg}" opacity="0.75" text-anchor="middle"&gt;${(category || "PRODUK").slice(0, 22)}</text>
+</svg>`;
+return "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg);
+}
+
+function formatRupiah(num) {
+return CONFIG.MATA_UANG + " " + Number(num || 0).toLocaleString("id-ID");
+}
+
+function getItemPrice(item, level = null) {
+const activeLevel = level || (document.getElementById("priceLevelSelect")?.value || "hjual1");
+const p1 = Number(item.price || 0);
+const p2 = Number(item.price2 || 0);
+const p3 = Number(item.price3 || 0);
+if (activeLevel === "hjual2") return p2 > 0 ? p2 : p1;
+if (activeLevel === "hjual3") return p3 > 0 ? p3 : (p2 > 0 ? p2 : p1);
+return p1;
+}
+
+function buildCategories() {
+const container = document.getElementById("categoryChips");
+const cats = ["Semua", ...new Set(items.map(i => i.category || "Umum"))];
+if (!cats.includes(selectedCategory)) selectedCategory = "Semua";
+
+container.innerHTML = cats.map(cat => {
+const active = cat === selectedCategory;
+return <button onclick="selectCategory('${cat.replace(/'/g, "'")}')"
+class="px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition {cat}</button>`;
+}).join("");
+}
+
+function selectCategory(cat) {
+selectedCategory = cat;
+buildCategories();
+renderCatalog();
+}
+
+function clearSearch() {
+document.getElementById("searchInput").value = "";
+renderCatalog();
+}
+
+function renderCatalog() {
+const query = document.getElementById("searchInput").value.toLowerCase().trim();
+const sortMode = document.getElementById("sortSelect").value;
+document.getElementById("clearSearchBtn").classList.toggle("hidden", !query);
+
+const stockFilter = document.getElementById("stockFilterSelect").value;
+
+let filtered = items.filter(item => {
+const st = Number(item.stock ?? 0);
+const matchCat = selectedCategory === "Semua" || (item.category || "Umum") === selectedCategory;
+const matchQuery = !query || item.name.toLowerCase().includes(query) || (item.category || "").toLowerCase().includes(query);
+let matchStock = true;
+if (stockFilter === "available") matchStock = st > 0;
+if (stockFilter === "low") matchStock = st > 0 && st <= 5;
+if (stockFilter === "empty") matchStock = st <= 0;
+return matchCat && matchQuery && matchStock;
+});
+
+if (sortMode === "name-asc") filtered.sort((a, b) => a.name.localeCompare(b.name));
+if (sortMode === "price-asc") filtered.sort((a, b) => getItemPrice(a) - getItemPrice(b));
+if (sortMode === "price-desc") filtered.sort((a, b) => getItemPrice(b) - getItemPrice(a));
+if (sortMode === "stock-asc") filtered.sort((a, b) => Number(a.stock ?? 0) - Number(b.stock ?? 0));
+if (sortMode === "stock-desc") filtered.sort((a, b) => Number(b.stock ?? 0) - Number(a.stock ?? 0));
+
+document.getElementById("itemCount").textContent = filtered.length;
+const grid = document.getElementById("catalogGrid");
+const empty = document.getElementById("emptyState");
+
+if (filtered.length === 0) {
+grid.innerHTML = "";
+empty.classList.remove("hidden");
+return;
+}
+empty.classList.add("hidden");
+
+grid.innerHTML = filtered.map(item => {
+const fallback = generateFallbackSvg(item.name, item.category);
+const imgSrc = item.image && item.image.startsWith("http") ? item.image : fallback;
+const st = Number(item.stock ?? 0);
+const stockLabel = st <= 0 ? "Habis" : Stok: ${st}; const stockBadgeClass = st &lt;= 0 ? "bg-rose-600 text-white" : (st &lt;= 5 ? "bg-amber-500 text-white" : "bg-slate-900/80 text-white"); const activePrice = getItemPrice(item); const unitLabel = item.unit ? / ${item.unit} : "";
+const safeText = ${item.name} - ${formatRupiah(activePrice)}${unitLabel} (${stockLabel}).replace(/'/g, "\'");
+
+return &lt;div class="bg-white rounded-2xl border border-slate-200/90 overflow-hidden shadow-xs hover:shadow-md transition flex flex-col ${st <= 0 ? "opacity-80" : ""}">
+<div class="aspect-square bg-slate-100 relative overflow-hidden">
+<img src="${imgSrc}" alt="${item.name}" loading="lazy"
+onerror="this.onerror=null;this.src='${fallback}';" class="w-full h-full object-cover" /&gt; &lt;span class="absolute top-2 left-2 bg-white/90 backdrop-blur-xs text-slate-700 text-[10px] font-semibold px-2 py-0.5 rounded-md shadow-2xs"&gt; ${item.category || "Umum"}
+</span>
+<span class="absolute bottom-2 right-2 ${stockBadgeClass} backdrop-blur-xs text-[10px] font-bold px-2 py-0.5 rounded-md shadow-2xs"&gt; ${stockLabel}
+</span>
+</div>
+<div class="p-3 flex-1 flex flex-col justify-between">
+<div>
+<h3 class="font-semibold text-slate-800 text-xs sm:text-sm line-clamp-2 leading-snug">${item.name}&lt;/h3&gt; &lt;/div&gt; &lt;div class="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between gap-1"&gt; &lt;div class="leading-tight"&gt; &lt;span class="font-bold text-emerald-700 text-sm sm:text-base"&gt;${formatRupiah(activePrice)}</span>
+${item.unit ?<span class="block text-[10px] text-slate-400">per latex
+{item.unit}&lt;/span>` : ""} &lt;/div&gt; &lt;button onclick="copyItemInfo('
+
+{safeText}')" title="Salin info barang"
+class="p-1.5 rounded-lg bg-slate-100 hover:bg-emerald-50 text-slate-600 hover:text-emerald-700 transition">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+</svg>
+</button>
+</div>
+</div>
+</div>
+`;
+}).join("");
+}
+
+function copyItemInfo(text) {
+navigator.clipboard.writeText(text);
+showToast("Disalin: " + text);
+}
+
+// ==========================================
+// MODAL KELOLA DATA
+// ==========================================
+function openManageModal() {
+document.getElementById("manageModal").classList.remove("hidden");
+}
+function closeManageModal() {
+document.getElementById("manageModal").classList.add("hidden");
+}
+function switchTab(tab) {
+const isSheets = tab === "sheets";
+document.getElementById("panelSheets").classList.toggle("hidden", !isSheets);
+document.getElementById("panelExcel").classList.toggle("hidden", isSheets);
+
+document.getElementById("tabSheets").className = isSheets
+? "flex-1 py-3 border-b-2 border-emerald-600 text-emerald-700 bg-emerald-50/40"
+: "flex-1 py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800";
+document.getElementById("tabExcel").className = !isSheets
+? "flex-1 py-3 border-b-2 border-emerald-600 text-emerald-700 bg-emerald-50/40"
+: "flex-1 py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800";
+}
+
+function saveAndSyncSheet() {
+const url = document.getElementById("sheetUrlInput").value.trim();
+if (!url) {
+showToast("Masukkan URL CSV Google Sheets terlebih dahulu.");
+return;
+}
+localStorage.setItem("katalog_sheet_url", url);
+closeManageModal();
+syncFromGoogleSheet(true);
+}
+
+function disconnectSheet() {
+localStorage.removeItem("katalog_sheet_url");
+document.getElementById("sheetUrlInput").value = "";
+updateSourceBadge(false);
+showToast("Koneksi Google Sheets diputuskan.");
+}
+
+function importFromExcelPaste(replaceAll) {
+const raw = document.getElementById("excelPasteArea").value.trim();
+if (!raw) {
+showToast("Tempel data dari Excel terlebih dahulu.");
+return;
+}
+const lines = raw.split(/\r?\n/);
+const parsed = [];
+lines.forEach(line => {
+const cols = line.split("\t");
+if (!cols[0] || !cols[0].trim()) return;
+const price = Number(String(cols[1] || "0").replace(/[^0-9]/g, "")) || 0;
+const rawSt = String(cols[4] ?? "").trim();
+const stock = rawSt === "" ? 0 : (Number(rawSt.replace(/[^0-9-]/g, "")) || 0);
+parsed.push({
+name: cols[0].trim(),
+price: price,
+category: (cols[2] || "Umum").trim(),
+image: (cols[3] || "").trim(),
+stock: stock
+});
+});
+
+if (parsed.length === 0) return;
+items = replaceAll ? parsed : [...items, ...parsed];
+saveLocalItems();
+buildCategories();
+renderCatalog();
+document.getElementById("excelPasteArea").value = "";
+closeManageModal();
+showToast("Berhasil memuat " + parsed.length + " barang!");
+}
+
+function resetSampleData() {
+items = [...SAMPLE_DATA];
+saveLocalItems();
+buildCategories();
+renderCatalog();
+closeManageModal();
+showToast("Data dikembalikan ke contoh awal.");
+}
+
+function showToast(msg) {
+const t = document.getElementById("toast");
+t.textContent = msg;
+t.classList.remove("opacity-0");
+setTimeout(() => t.classList.add("opacity-0"), 2600);
+}
+</script>
+</body>
+</html>
